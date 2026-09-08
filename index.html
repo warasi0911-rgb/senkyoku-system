@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 
@@ -61,15 +62,35 @@
 
   <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
     <h1 class="text-2xl font-bold mb-4 border-b pb-2">選曲公募 投稿フォーム</h1>
-
-    <div class="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
-      <label for="gasApiUrl" class="block text-sm font-bold text-yellow-800 mb-2">
-        ⚙️ GAS API設定 (このURLはブラウザに記憶されます)
-      </label>
-      <input type="text" id="gasApiUrl" class="w-full border rounded p-2 text-sm bg-white"
-        placeholder="https://script.google.com/macros/s/..../exec">
+    <div class="mb-6 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700 space-y-3">
+      <p class="font-bold text-base">【投稿フォームの使い方】</p>
+      <ol class="list-decimal ml-5 space-y-2">
+        <li>
+          <strong class="font-semibold">URLで自動入力:</strong> 楽譜の出版社サイトのURLをURL欄に貼り付けて「自動取得」を押すと、情報が自動入力されます。<br>
+          <span class="text-xs text-blue-700 font-bold block mt-1">※対応サイト：ブレーン / フォスターミュージック / ロケットミュージック / ウィンズスコア /
+            ヤマハ / CAFUA</span>
+        </li>
+        <li><strong class="font-semibold">手入力・修正:</strong>
+          ジャンル欄の選択や、自動入力で反映されなかった記入欄は手入力してください。(URLのリンク欄は入力されたままにしてください)</li>
+        <li><strong class="font-semibold">必須項目の入力:</strong> 赤い<span
+            class="text-red-500 font-bold">*</span>がついている項目はすべて入力してください。</li>
+        <li>
+          <strong class="font-semibold">投稿後の情報の修正について（誰でも修正可能です）:</strong><br>
+          投稿した内容を修正したい場合は、下のボタンからスプレッドシートを開き、直接セルを書き換えてください。<br>
+          <span
+            class="text-red-600 font-bold">※重要：セルを書き換えた後は、必ず上部メニューの「⚙️システム管理」＞「📤データベースに反映する」を押して保存してください。</span><br>
+          <span
+            class="text-xs text-gray-500">（反映前に他の人が新しく投稿すると、修正中の文字がリセットされる場合があります。その場合はスプレッドシートの「ファイル」＞「変更履歴」から元の文字を確認できます）</span>
+        </li>
+      </ol>
+      <div class="pt-3">
+        <a href="https://docs.google.com/spreadsheets/d/1_wI-8SZ_GkftlJ29qPUJ7YFYSZe2XOQFsTB2rMdZEgo/edit?usp=drivesdk"
+          target="_blank"
+          class="inline-block bg-green-600 text-white font-bold py-2 px-4 rounded hover:bg-green-700 transition">
+          現在の投稿済みリストを確認・修正する（スプレッドシート）
+        </a>
+      </div>
     </div>
-
     <form id="submissionForm">
       <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -94,13 +115,12 @@
     </form>
   </div>
 
-  <!-- ★Firestoreを使用するため、type="module" に変更しています -->
   <script type="module">
     // Firebase SDKのインポート
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import { getFirestore, collection, doc, writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-    // いただいたFirebase設定を組み込み
+    // Firebase設定
     const firebaseConfig = {
       apiKey: "AIzaSyCvwE3mI8w21SPZXecsFLBR6ma-L6COS9Q",
       authDomain: "senkyoku-system.firebaseapp.com",
@@ -114,27 +134,18 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // ==========================================
-    // マスターデータの準備 (テスト用)
-    // ==========================================
+    // マスターデータの準備
     const masterSongs = [
       { id: "s001", title: "アルメニアン・ダンス パート1", composer: "A. リード", kana: "アルメニアンダンス" },
       { id: "s002", title: "宝島", composer: "和泉 宏隆", kana: "タカラジマ" }
     ];
     const alreadySubmittedSongs = ["s001"];
-    const masterComposers = [...new Set(masterSongs.map(song => song.composer))].filter(Boolean);
 
     const songContainer = document.getElementById('songContainer');
     let rowCount = 0;
 
-    // GASのURL管理
-    const gasApiUrlInput = document.getElementById('gasApiUrl');
-    const saveGasUrl = () => localStorage.setItem('gasApiUrl', gasApiUrlInput.value);
-    const loadGasUrl = () => {
-      const savedUrl = localStorage.getItem('gasApiUrl');
-      if (savedUrl) gasApiUrlInput.value = savedUrl;
-    };
-    gasApiUrlInput.addEventListener('change', saveGasUrl);
+    // GASのAPI URLを固定
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxoO9p6CB98Wuwlb0KtUYmdewHslcj6rVydgY2gis2K_lOlgmr3fnySwPRUycnaycq9/exec";
 
     // ==========================================
     // 楽曲入力行の追加
@@ -147,7 +158,7 @@
       rowDiv.innerHTML = `
             <div class="bg-blue-50 p-3 rounded border border-blue-200 flex flex-col md:flex-row gap-2 items-center">
                 <div class="flex-1 w-full">
-                    <label class="block text-xs font-bold text-blue-800 mb-1">🔗 出版サイトのURLを貼ると自動入力されます</label>
+                    <label class="block text-xs font-bold text-blue-800 mb-1">🔗 出版サイトのURLを貼ると自動入力されます。自動入力されなかった欄は手入力してください</label>
                     <input type="url" class="publisher-url w-full border rounded p-1.5 text-sm bg-white" placeholder="https://www.brain-shop.net/shop/g/g...">
                 </div>
                 <div class="w-full md:w-auto pt-4">
@@ -166,9 +177,8 @@
                     <div class="duplicate-warning text-orange-600 text-xs font-bold mt-1 hidden">⚠️ この曲は既に他のメンバーから推薦されています</div>
                 </div>
                 <div class="flex-1 w-full relative">
-                    <label class="block text-sm font-medium mb-1">作曲者 / 編曲者</label>
-                    <input type="text" class="song-composer w-full border rounded p-2 focus:ring-2 focus:ring-blue-500" autocomplete="off">
-                    <div class="suggest-list composer-suggest"></div>
+                    <label class="block text-sm font-medium mb-1">作曲者 / 編曲者 <span class="text-red-500">*</span></label>
+                    <input type="text" class="song-composer w-full border rounded p-2 focus:ring-2 focus:ring-blue-500" autocomplete="off" required>
                 </div>
                 <div class="w-full md:w-40">
                     <label class="block text-sm font-medium mb-1">ジャンル</label>
@@ -176,7 +186,7 @@
                         <option value="吹奏楽曲">吹奏楽曲</option>
                         <option value="オケ編曲">オケ編曲</option>
                         <option value="ポップス">ポップス</option>
-                        <option value="映画音楽">映画音楽</option>
+                        <option value="映画・ミュージカル音楽">映画音楽・ミュージカル音楽</option>
                         <option value="テレビ音楽">テレビ音楽</option>
                         <option value="アニメ・ゲーム">アニメ・ゲーム</option>
                     </select>
@@ -186,25 +196,32 @@
                 </div>
             </div>
 
-            <div class="mt-2 p-3 bg-white border rounded text-sm transition-all duration-300">
-                <p class="text-xs font-bold text-gray-500 mb-2">詳細データ（自動取得・手入力可）</p>
+            <div class="mt-1 p-3 bg-white border rounded text-sm">
+                <p class="text-xs font-bold text-gray-500 mb-2">その他詳細データ</p>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">グレード</label>
-                        <input type="text" class="song-grade w-full border rounded p-1.5 text-xs">
+                        <label class="block text-xs text-gray-600 mb-1">グレード <span class="text-red-500">*</span></label>
+                        <input type="text" class="song-grade w-full border rounded p-1.5 text-xs" required>
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">演奏時間</label>
-                        <input type="text" class="song-duration w-full border rounded p-1.5 text-xs">
+                        <label class="block text-xs text-gray-600 mb-1">演奏時間 <span class="text-red-500">*</span></label>
+                        <input type="text" class="song-duration w-full border rounded p-1.5 text-xs" required>
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">YouTube URL</label>
-                        <input type="url" class="song-youtube w-full border rounded p-1.5 text-xs">
+                        <label class="block text-xs text-gray-600 mb-1">YouTube URL <span class="text-red-500">*</span></label>
+                        <input type="url" class="song-youtube w-full border rounded p-1.5 text-xs" required>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-600 mb-1">楽器編成</label>
-                    <textarea class="song-formation w-full border rounded p-2 text-xs font-mono leading-relaxed" rows="5" placeholder="Piccolo\nFlute 1\nFlute 2..."></textarea>
+                    <label class="block text-xs text-gray-600 mb-1">楽器編成 <span class="text-red-500">*</span></label>
+                    <textarea class="song-formation w-full border rounded p-2 text-xs font-mono leading-relaxed" rows="5" placeholder="Piccolo\nFlute 1\nFlute 2..." required></textarea>
+                </div>
+
+                <div class="mt-2 p-3 bg-white border rounded text-sm">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">備考（編成・技術面の懸念点など）</label>
+                        <textarea class="song-remarks w-full border rounded p-2 text-sm" rows="2" placeholder=""></textarea>
+                    </div>
                 </div>
             </div>
         `;
@@ -224,22 +241,18 @@
     }
 
     // ==========================================
-    // URLから情報を自動取得 (GAS API)
+    // URLから情報を自動取得
     // ==========================================
     async function fetchSongDataFromURL(url, rowDiv, btn) {
-      const gasApiUrl = gasApiUrlInput.value.trim();
-      if (!gasApiUrl) {
-        alert("画面上部の「GAS API設定」にウェブアプリのURLを貼り付けてください。");
-        return;
-      }
-      if (!url) { alert("出版社URLを入力してください。"); return; }
+      if (!GAS_API_URL) return alert("GASのURLが設定されていません。");
+      if (!url) return alert("出版社URLを入力してください。");
 
       const originalText = btn.textContent;
       btn.disabled = true;
       btn.innerHTML = `<span class="loading-spinner"></span> 取得中...`;
 
       try {
-        const response = await fetch(gasApiUrl, {
+        const response = await fetch(GAS_API_URL, {
           method: "POST",
           headers: { "Content-Type": "text/plain" },
           body: JSON.stringify({ url: url })
@@ -249,23 +262,20 @@
         if (result.success && result.data) {
           const d = result.data;
           rowDiv.querySelector('.song-title').value = d.title || "";
-
           let composerText = d.composer || "";
           if (d.arranger) composerText += ` (編曲: ${d.arranger})`;
           rowDiv.querySelector('.song-composer').value = composerText;
-
           rowDiv.querySelector('.song-grade').value = d.grade || "";
           rowDiv.querySelector('.song-duration').value = d.duration || "";
           rowDiv.querySelector('.song-youtube').value = d.youtubeUrl || "";
           rowDiv.querySelector('.song-formation').value = d.formation || "";
-
           rowDiv.querySelector('.duplicate-warning').classList.add('hidden');
         } else {
           alert("情報の取得に失敗しました: " + (result.error || "不明なエラー"));
         }
       } catch (err) {
         console.error(err);
-        alert("通信エラーが発生しました。GASのURLが正しいか確認してください。");
+        alert("通信エラーが発生しました。");
       } finally {
         btn.disabled = false;
         btn.textContent = originalText;
@@ -273,15 +283,13 @@
     }
 
     // ==========================================
-    // サジェスト機能
+    // サジェスト機能（曲名のみ）
     // ==========================================
     function setupSuggest(rowDiv) {
       const titleInput = rowDiv.querySelector('.song-title');
       const idInput = rowDiv.querySelector('.song-id');
       const composerInput = rowDiv.querySelector('.song-composer');
-
       const titleSuggest = rowDiv.querySelector('.title-suggest');
-      const composerSuggest = rowDiv.querySelector('.composer-suggest');
       const warningMsg = rowDiv.querySelector('.duplicate-warning');
 
       const checkDuplicate = (songId) => {
@@ -293,35 +301,6 @@
         const keyword = titleInput.value.trim();
         if (!idInput.value && keyword.length > 0) {
           warningMsg.classList.add('hidden');
-        }
-      };
-
-      const showSongsByComposer = (composerName) => {
-        titleSuggest.innerHTML = '';
-        const matchedSongs = masterSongs.filter(song => song.composer === composerName);
-        if (matchedSongs.length > 0) {
-          const header = document.createElement('div');
-          header.className = 'p-2 text-xs font-bold text-blue-700 bg-blue-50 border-b';
-          header.textContent = `▼ ${composerName} の楽曲から選ぶ`;
-          titleSuggest.appendChild(header);
-
-          matchedSongs.forEach(song => {
-            const item = document.createElement('div');
-            item.className = 'suggest-item';
-            item.innerHTML = `<div class="font-bold">${song.title}</div>`;
-            item.addEventListener('click', (e) => {
-              e.stopPropagation();
-              titleInput.value = song.title;
-              composerInput.value = song.composer;
-              idInput.value = song.id;
-              titleSuggest.style.display = 'none';
-              checkDuplicate(song.id);
-              checkIsNewSong();
-            });
-            titleSuggest.appendChild(item);
-          });
-          titleSuggest.style.display = 'block';
-          titleInput.focus();
         }
       };
 
@@ -342,9 +321,12 @@
             item.innerHTML = `<div class="font-bold">${song.title}</div><div class="text-xs text-gray-500">${song.composer}</div>`;
             item.addEventListener('click', (e) => {
               e.stopPropagation();
-              titleInput.value = song.title; composerInput.value = song.composer; idInput.value = song.id;
+              titleInput.value = song.title;
+              composerInput.value = song.composer;
+              idInput.value = song.id;
               titleSuggest.style.display = 'none';
-              checkDuplicate(song.id); checkIsNewSong();
+              checkDuplicate(song.id);
+              checkIsNewSong();
             });
             titleSuggest.appendChild(item);
           });
@@ -352,40 +334,56 @@
         } else titleSuggest.style.display = 'none';
       });
 
-      composerInput.addEventListener('input', function () {
-        const keyword = this.value.trim().toLowerCase();
-        composerSuggest.innerHTML = '';
-        if (keyword.length === 0) { composerSuggest.style.display = 'none'; return; }
-
-        const matchedComposers = masterComposers.filter(comp => comp.toLowerCase().includes(keyword));
-        if (matchedComposers.length > 0) {
-          matchedComposers.forEach(comp => {
-            const item = document.createElement('div');
-            item.className = 'suggest-item text-sm font-bold text-gray-700'; item.textContent = comp;
-            item.addEventListener('click', (e) => {
-              e.stopPropagation(); composerInput.value = comp; composerSuggest.style.display = 'none';
-              showSongsByComposer(comp);
-            });
-            composerSuggest.appendChild(item);
-          });
-          composerSuggest.style.display = 'block';
-        } else composerSuggest.style.display = 'none';
-      });
-
       document.addEventListener('click', function (e) {
-        if (e.target !== titleInput && !titleSuggest.contains(e.target)) { titleSuggest.style.display = 'none'; checkIsNewSong(); }
-        if (e.target !== composerInput && !composerSuggest.contains(e.target)) composerSuggest.style.display = 'none';
+        if (e.target !== titleInput && !titleSuggest.contains(e.target)) {
+          titleSuggest.style.display = 'none';
+          checkIsNewSong();
+        }
       });
+    }
+
+    // ==========================================
+    // 演奏時間を hh:mm:ss に自動整形する関数
+    // ==========================================
+    function formatDuration(input) {
+      if (!input) return "";
+      // 全角数字を半角に変換
+      let s = input.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+      let h = 0, m = 0, sec = 0;
+
+      if (s.includes(':')) {
+        let parts = s.replace(/[^0-9:]/g, '').split(':');
+        if (parts.length >= 3) {
+          h = parseInt(parts[0]) || 0; m = parseInt(parts[1]) || 0; sec = parseInt(parts[2]) || 0;
+        } else if (parts.length === 2) {
+          m = parseInt(parts[0]) || 0; sec = parseInt(parts[1]) || 0;
+        }
+      } else {
+        let matchH = s.match(/([0-9]+)\s*時間/); if (matchH) h = parseInt(matchH[1]);
+        let matchM = s.match(/([0-9]+)\s*分/); if (matchM) m = parseInt(matchM[1]);
+        let matchS = s.match(/([0-9]+)\s*秒/); if (matchS) sec = parseInt(matchS[1]);
+
+        if (!matchH && !matchM && !matchS) {
+          let matchNum = s.match(/^[^0-9]*([0-9]+)[^0-9]*$/);
+          if (matchNum) m = parseInt(matchNum[1]);
+        }
+      }
+
+      if (sec >= 60) { m += Math.floor(sec / 60); sec = sec % 60; }
+      if (m >= 60) { h += Math.floor(m / 60); m = m % 60; }
+
+      const pad = (num) => String(num).padStart(2, '0');
+      return `${pad(h)}:${pad(m)}:${pad(sec)}`;
     }
 
     // ==========================================
     // 起動時の処理
     // ==========================================
     document.getElementById('addSongBtn').addEventListener('click', createSongRow);
-    window.addEventListener('DOMContentLoaded', () => { loadGasUrl(); createSongRow(); });
+    window.addEventListener('DOMContentLoaded', () => { createSongRow(); });
 
     // ==========================================
-    // ★追加: Firestoreへの保存処理（バッチ処理）
+    // Firestoreへの保存処理（バッチ処理）
     // ==========================================
     document.getElementById('submissionForm').addEventListener('submit', async function (e) {
       e.preventDefault();
@@ -394,43 +392,36 @@
       const submitBtn = this.querySelector('button[type="submit"]');
       const originalBtnText = submitBtn.textContent;
 
-      // 二重送信防止
       submitBtn.disabled = true;
       submitBtn.innerHTML = `<span class="loading-spinner"></span> 送信中...`;
 
       try {
-        // Firestoreへの一括書き込み（バッチ処理）の準備
         const batch = writeBatch(db);
         const submissionsRef = collection(db, "Submissions");
 
         let songCount = 0;
 
-        // 画面に入力されている曲をループ処理
         Array.from(songContainer.children).forEach(row => {
           const title = row.querySelector('.song-title').value.trim();
-          if (!title) return; // 曲名が空の行はスキップ
+          if (!title) return;
 
           songCount++;
-
-          // 新しいドキュメントIDを自動生成
           const newDocRef = doc(submissionsRef);
-
-          // 書き込むデータ
-          const songData = {
+　　　　　const songData = {
             submitterName: submitterName,
-            songId: row.querySelector('.song-id').value || null, // サジェストから選ばれたらIDが入る
+            songId: row.querySelector('.song-id').value || null,
             title: title,
             composer: row.querySelector('.song-composer').value.trim(),
             category: row.querySelector('.song-category').value,
             grade: row.querySelector('.song-grade').value.trim(),
-            duration: row.querySelector('.song-duration').value.trim(),
+            duration: formatDuration(row.querySelector('.song-duration').value.trim()),
             youtubeUrl: row.querySelector('.song-youtube').value.trim(),
+            publisherUrl: row.querySelector('.publisher-url').value.trim(), // ★この1行を追加！
+            remarks: row.querySelector('.song-remarks').value.trim(),
             formation: row.querySelector('.song-formation').value.trim(),
-            submittedAt: serverTimestamp() // Firebaseのサーバー時間
+            submittedAt: serverTimestamp() 
           };
-
-          // バッチにセット
-          batch.set(newDocRef, songData);
+             batch.set(newDocRef, songData);
         });
 
         if (songCount === 0) {
@@ -440,8 +431,17 @@
           return;
         }
 
-        // バッチ書き込みを実行！
+        // バッチ書き込みを実行
         await batch.commit();
+
+        // スプレッドシート即時同期の合図を送る
+        if (typeof GAS_API_URL !== 'undefined') {
+          fetch(GAS_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({ action: "sync" })
+          }).catch(err => console.error("スプレッドシート即時同期エラー:", err));
+        }
 
         alert(`${songCount}曲のデータを送信しました！ありがとうございます。`);
 

@@ -134,6 +134,9 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    // ★締め切りスイッチ（締め切る時は true、受付中は false にします）
+    const IS_CLOSED = true;
+    
     // マスターデータの準備
     const masterSongs = [
       { id: "s001", title: "アルメニアン・ダンス パート1", composer: "A. リード", kana: "アルメニアンダンス" },
@@ -380,8 +383,21 @@
     // 起動時の処理
     // ==========================================
     document.getElementById('addSongBtn').addEventListener('click', createSongRow);
-    window.addEventListener('DOMContentLoaded', () => { createSongRow(); });
-
+   window.addEventListener('DOMContentLoaded', () => {
+      // 締め切られている場合の表示切り替え
+      if (IS_CLOSED) {
+        document.getElementById('submissionForm').style.display = 'none'; // フォーム全体を非表示
+        const closedMsg = document.createElement('div');
+        closedMsg.className = "p-6 bg-red-50 border border-red-200 rounded-lg text-center my-6";
+        closedMsg.innerHTML = `
+          <h2 class="text-xl font-bold text-red-600 mb-2">📢 今回の選曲公募は締め切りました</h2>
+          <p class="text-sm text-gray-700">たくさんのご応募ありがとうございました！<br>選考状況や提出曲の一覧は、以下のスプレッドシートよりご確認いただけます。</p>
+        `;
+        document.getElementById('submissionForm').parentNode.insertBefore(closedMsg, document.getElementById('submissionForm'));
+      } else {
+        createSongRow(); // 受付中の場合は通常通り1行目を表示
+      }
+    });
     // ==========================================
     // Firestoreへの保存処理（バッチ処理）
     // ==========================================
